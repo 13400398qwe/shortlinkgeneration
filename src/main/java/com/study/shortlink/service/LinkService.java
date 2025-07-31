@@ -4,11 +4,13 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.google.zxing.BarcodeFormat;
 import com.google.zxing.WriterException;
 import com.google.zxing.client.j2se.MatrixToImageWriter;
+import com.google.zxing.qrcode.QRCodeReader;
 import com.google.zxing.qrcode.QRCodeWriter;
 import com.study.shortlink.mapper.TLinkMapper;
 import com.study.shortlink.pojo.entity.TLink;
 import com.study.shortlink.util.Base62;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
@@ -25,7 +27,8 @@ public class LinkService {
     private final TLinkMapper linkRepository; // 假设这是JPA或MyBatis的Mapper
     private final RedisTemplate<String, String> redisTemplate;
     private final KafkaTemplate<String, String> kafkaTemplate;
-    private static final String SHORT_URL_PREFIX = "http://localhost:8080/";
+    @Value("${app.short-url.prefix}")
+    private String shortUrlPrefix;
 
     @Transactional
     public String createShortLink(String longUrl, String customCode) {
@@ -66,7 +69,7 @@ public class LinkService {
             // 4. 将映射关系写入Redis缓存，并设置一个过期时间（例如24小时）
             redisTemplate.opsForValue().set(shortCode, longUrl, 24, TimeUnit.HOURS);
         }
-        return SHORT_URL_PREFIX + shortCode;
+        return shortUrlPrefix + shortCode;
     }
 
     public String getLongUrl(String shortCode) {
@@ -103,11 +106,10 @@ public class LinkService {
 
     public byte[] generateQrCode(String shortCode) throws WriterException, IOException {
         // 1. 拼接完整的短链接URL
-        String shortUrl = SHORT_URL_PREFIX + shortCode;
+        String shortUrl = shortUrlPrefix + shortCode;
 
         // 2. 创建二维码写入器
         QRCodeWriter qrCodeWriter = new QRCodeWriter();
-
         // 3. 将URL编码为二维码的矩阵表示
         // 参数：内容, 格式, 宽度, 高度
         var bitMatrix = qrCodeWriter.encode(shortUrl, BarcodeFormat.QR_CODE, 200, 200);
@@ -115,7 +117,6 @@ public class LinkService {
         // 4. 将矩阵写入到一个字节输出流中 (PNG格式)
         ByteArrayOutputStream pngOutputStream = new ByteArrayOutputStream();
         MatrixToImageWriter.writeToStream(bitMatrix, "PNG", pngOutputStream);
-
         // 5. 返回图片的字节数组
         return pngOutputStream.toByteArray();
     }

@@ -1,0 +1,74 @@
+version: '3.8'
+
+services:
+  # 服务一：Nginx + 前端应用
+  frontend:
+    build:
+      context: ./frontend # 指定前端项目的 Dockerfile 路径
+    container_name: psychological-frontend
+    ports:
+      - "80:80" # 将服务器的 80 端口映射到 Nginx
+    depends_on:
+      - backend # 确保后端先启动
+
+  # 服务二：Spring Boot 后端应用
+  backend:
+    build:
+      context: ./backend # 指定后端项目的 Dockerfile 路径
+    container_name: psychological-backend
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql-db:3306/psychological?useUnicode=true&characterEncoding=utf-8
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=your_strong_mysql_password
+      - SPRING_DATA_REDIS_HOST=redis-db
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:9092 # 【新增】配置 Kafka 地址
+    depends_on:
+      - mysql-db
+      - redis-db
+      - kafka
+
+  # 服务三：MySQL 数据库
+  mysql-db:
+    image: mysql:8.0
+    container_name: psychological-mysql
+    restart: always
+    environment:
+      - MYSQL_ROOT_PASSWORD=your_strong_mysql_password
+      - MYSQL_DATABASE=psychological
+    volumes:
+      - mysql-data:/var/lib/mysql
+
+  # 服务四：Redis
+  redis-db:
+    image: redis:latest
+    container_name: psychological-redis
+    restart: always
+    volumes:
+      - redis-data:/data
+
+  # 【新增】服务五：Zookeeper (Kafka 依赖)
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.1
+    container_name: psychological-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+
+  # 【新增】服务六：Kafka
+  kafka:
+    image: confluentinc/cp-kafka:7.6.1
+    container_name: psychological-kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_INTERNAL:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_INTERNAL://localhost:29092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
