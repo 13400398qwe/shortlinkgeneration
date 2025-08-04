@@ -24,7 +24,7 @@ import java.time.LocalDateTime;
 @TableName("t_link")
 public class TLink implements Serializable {
 
-    private static final long serialVersionUID = 1L;
+    private static final long serialVersionUID = 1L;// 此处的serialVersionUID为1L,为了避免序列化时出现版本不一致的问题，一般使用1L。
 
     /**
      * 主键ID
